@@ -1,0 +1,73 @@
+# Build artifacts
+*.o
+*.ko
+*.mod
+*.mod.c
+*.mod.o
+.*.cmd
+*.order
+*.symvers
+modules.order
+Module.symvers
+
+# Build directories
+out/
+build/
+dist/
+*.a
+*.so
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+.DS_Store
+.project
+.classpath
+.cproject
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# Android NDK
+ndk-build/
+obj/
+
+# Kernel build
+kernel/micharge_uevent_helper/out/
+kernel/micharge_uevent_helper/.tmp_versions/
+kernel/micharge_uevent_helper/*.ko
+kernel/micharge_uevent_helper/*.o
+kernel/micharge_uevent_helper/*.mod*
+
+# HAL Shim build
+shim/micharge/out/
+shim/micharge/*.exe
+shim/micharge/*.o
+
+# Temporary files
+*.log
+*.bak
+*.orig
+*.rej
+*.patch
+
+# System files
+.DS_Store
+Thumbs.db
+.gitkeep
+
+# Documentation cache
+docs/.buildinfo
+docs/_build/
+
+# Gradle (if any)
+.gradle/
+local.properties
+
+# Node/npm (if any)
+node_modules/
+package-lock.json

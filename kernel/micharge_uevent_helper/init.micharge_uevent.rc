@@ -1,0 +1,72 @@
+on early-init
+    insmod /vendor_dlkm/lib/modules/micharge_uevent.ko
+
+on post-fs-data
+    chown system system /sys/kernel/micharge_uevent/quick_charge_type
+    chown system system /sys/kernel/micharge_uevent/power_max
+    chown system system /sys/kernel/micharge_uevent/online
+    chown system system /sys/kernel/micharge_uevent/usb_type
+    chown system system /sys/kernel/micharge_uevent/emit_on_same
+    chown system system /sys/kernel/micharge_uevent/emit
+    chmod 0660 /sys/kernel/micharge_uevent/quick_charge_type
+    chmod 0660 /sys/kernel/micharge_uevent/power_max
+    chmod 0660 /sys/kernel/micharge_uevent/online
+    chmod 0660 /sys/kernel/micharge_uevent/usb_type
+    chmod 0660 /sys/kernel/micharge_uevent/emit_on_same
+    chmod 0220 /sys/kernel/micharge_uevent/emit
+
+on boot
+    chown system system /sys/kernel/micharge_uevent/quick_charge_type
+    chown system system /sys/kernel/micharge_uevent/power_max
+    chown system system /sys/kernel/micharge_uevent/online
+    chown system system /sys/kernel/micharge_uevent/usb_type
+    chown system system /sys/kernel/micharge_uevent/emit_on_same
+    chown system system /sys/kernel/micharge_uevent/emit
+    chmod 0660 /sys/kernel/micharge_uevent/quick_charge_type
+    chmod 0660 /sys/kernel/micharge_uevent/power_max
+    chmod 0660 /sys/kernel/micharge_uevent/online
+    chmod 0660 /sys/kernel/micharge_uevent/usb_type
+    chmod 0660 /sys/kernel/micharge_uevent/emit_on_same
+    chmod 0220 /sys/kernel/micharge_uevent/emit
+
+on property:init.svc.micharge-hal=running
+    chown system system /sys/kernel/micharge_uevent/quick_charge_type
+    chown system system /sys/kernel/micharge_uevent/power_max
+    chown system system /sys/kernel/micharge_uevent/online
+    chown system system /sys/kernel/micharge_uevent/usb_type
+    chown system system /sys/kernel/micharge_uevent/emit_on_same
+    chown system system /sys/kernel/micharge_uevent/emit
+    chmod 0660 /sys/kernel/micharge_uevent/quick_charge_type
+    chmod 0660 /sys/kernel/micharge_uevent/power_max
+    chmod 0660 /sys/kernel/micharge_uevent/online
+    chmod 0660 /sys/kernel/micharge_uevent/usb_type
+    chmod 0660 /sys/kernel/micharge_uevent/emit_on_same
+    chmod 0220 /sys/kernel/micharge_uevent/emit
+
+on property:dev.bootcomplete=1
+    chown system system /sys/kernel/micharge_uevent/quick_charge_type
+    chown system system /sys/kernel/micharge_uevent/power_max
+    chown system system /sys/kernel/micharge_uevent/online
+    chown system system /sys/kernel/micharge_uevent/usb_type
+    chown system system /sys/kernel/micharge_uevent/emit_on_same
+    chown system system /sys/kernel/micharge_uevent/emit
+    chmod 0660 /sys/kernel/micharge_uevent/quick_charge_type
+    chmod 0660 /sys/kernel/micharge_uevent/power_max
+    chmod 0660 /sys/kernel/micharge_uevent/online
+    chmod 0660 /sys/kernel/micharge_uevent/usb_type
+    chmod 0660 /sys/kernel/micharge_uevent/emit_on_same
+    chmod 0220 /sys/kernel/micharge_uevent/emit
+
+on property:sys.boot_completed=1
+    chown system system /sys/kernel/micharge_uevent/quick_charge_type
+    chown system system /sys/kernel/micharge_uevent/power_max
+    chown system system /sys/kernel/micharge_uevent/online
+    chown system system /sys/kernel/micharge_uevent/usb_type
+    chown system system /sys/kernel/micharge_uevent/emit_on_same
+    chown system system /sys/kernel/micharge_uevent/emit
+    chmod 0660 /sys/kernel/micharge_uevent/quick_charge_type
+    chmod 0660 /sys/kernel/micharge_uevent/power_max
+    chmod 0660 /sys/kernel/micharge_uevent/online
+    chmod 0660 /sys/kernel/micharge_uevent/usb_type
+    chmod 0660 /sys/kernel/micharge_uevent/emit_on_same
+    chmod 0220 /sys/kernel/micharge_uevent/emit
