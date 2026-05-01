@@ -88,34 +88,180 @@ Output: `kernel/micharge_uevent_helper/micharge_uevent.ko`
 
 ## Installation
 
-### Deploy HAL Shim
+> **Note**: Modern Android devices use verified boot (AVB2) and dynamic partitions. The legacy `adb remount` approach no longer works on production devices. You must unpack, modify, and repack the ROM image.
+
+### Prerequisites for Image Repackaging
+
+- **Python 3.7+** with required packages
+- **Android image tools**:
+  ```bash
+  # Linux/macOS
+  git clone https://github.com/topjohnwu/Magisk
+  # Or use pre-built: https://github.com/averyOS/avery-tools
+  
+  # Windows (recommended): Use WSL2 or Docker
+  ```
+
+### Method 1: Using `super.img` (Dynamic Partitions)
+
+Most modern Xiaomi devices use A/B dynamic partitions in `super.img`.
+
+#### Step 1: Extract Partitions
 
 ```bash
-adb root
-adb remount
-adb shell mv /vendor/bin/hw/vendor.xiaomi.hardware.micharge-service \
-              /vendor/bin/hw/vendor.xiaomi.hardware.micharge-service.bak
-adb push shim/micharge/out/vendor.xiaomi.hardware.micharge-service \
-        /vendor/bin/hw/vendor.xiaomi.hardware.micharge-service
-adb shell chmod 755 /vendor/bin/hw/vendor.xiaomi.hardware.micharge-service
-adb reboot
+# Install lpunpack
+git clone https://android.googlesource.com/platform/system/tools/mkbootimg
+cd mkbootimg
+python3 mkbootimg/unpack_bootimg.py --boot_img boot.img --out boot_unpacked/
+
+# Unpack super.img
+python3 -m pip install lptools
+lpunpack super.img output_dir/
+
+# Extract vendor image
+mkdir -p vendor_extracted
+cd vendor_extracted
+simg2img ../output_dir/vendor.img vendor.img.raw
+mount -o loop vendor.img.raw mnt/
 ```
 
-### Install Kernel Module
-
-Place the compiled `.ko` file on the target device:
+#### Step 2: Replace HAL Service and Kernel Module
 
 ```bash
-adb push kernel/micharge_uevent_helper/micharge_uevent.ko \
-        /vendor_dlkm/lib/modules/
-adb push kernel/micharge_uevent_helper/init.micharge_uevent.rc \
-        /vendor/etc/init/
-adb reboot
+# Backup original
+cp mnt/bin/hw/vendor.xiaomi.hardware.micharge-service \
+   vendor.xiaomi.hardware.micharge-service.orig
+
+# Replace HAL shim
+sudo cp shim/micharge/out/vendor.xiaomi.hardware.micharge-service \
+       mnt/bin/hw/vendor.xiaomi.hardware.micharge-service
+sudo chmod 755 mnt/bin/hw/vendor.xiaomi.hardware.micharge-service
+
+# Copy kernel module and init script
+sudo mkdir -p mnt/etc/init/
+sudo mkdir -p mnt/../vendor_dlkm/lib/modules/
+sudo cp kernel/micharge_uevent_helper/micharge_uevent.ko \
+       mnt/../vendor_dlkm/lib/modules/
+sudo cp kernel/micharge_uevent_helper/init.micharge_uevent.rc \
+       mnt/etc/init/init.micharge_uevent.rc
 ```
 
-Alternatively, if your device uses `modules.load`:
+#### Step 3: Fix SELinux Labels
+
+The HAL service and init script must have correct SELinux contexts:
+
 ```bash
-adb shell "echo micharge_uevent.ko >> /vendor_dlkm/etc/modules.load"
+# Check original contexts
+ls -Z mnt/bin/hw/ | grep micharge
+
+# Common contexts for HAL services:
+# system_file (for binaries in /system)
+# vendor_file (for binaries in /vendor)
+# init_exec (for rc files)
+
+# Using chcon (if available)
+sudo chcon -h system_u:object_r:system_file:s0 \
+    mnt/bin/hw/vendor.xiaomi.hardware.micharge-service
+
+# Or edit file_contexts if available
+# Append to vendor_file_contexts or system/sepolicy/file_contexts
+```
+
+#### Step 4: Repack Image
+
+```bash
+# Unmount and repack
+cd vendor_extracted
+sudo umount mnt/
+img2simg vendor.img.raw vendor.img
+sudo chown $(id -u):$(id -g) vendor.img
+
+# Repack super.img
+lpmake --metadata-size 65536 \
+       --super-name super \
+       --metadata-slot 0 \
+       --virtual-ab \
+       -P vendor /path/to/vendor.img \
+       -P system /path/to/system.img \
+       -P system_ext /path/to/system_ext.img \
+       -o super.img.new
+
+# Or use lpunpack in reverse (tool-dependent)
+```
+
+### Method 2: Using Fastboot Flash (Recommended)
+
+If you have access to the original firmware structure:
+
+```bash
+# Extract from factory ROM
+unzip MIUI_ROM.zip
+
+# Unpack boot image
+cd BOOT
+unpack_bootimg --boot_img=boot.img
+# Modify ramdisk as needed...
+
+# Unpack vendor image
+mkdir vendor_work
+cd vendor_work
+simg2img ../VENDOR vendor.img.raw
+mount -o loop vendor.img.raw mnt/
+
+# Make modifications (same as Method 1 Step 2-3)
+...
+
+# Repack and flash
+sudo umount mnt/
+img2simg vendor.img.raw vendor.img
+
+# Flash via fastboot
+fastboot flash vendor vendor.img
+fastboot reboot
+```
+
+### Method 3: Build Custom ROM with Recovery
+
+If building from AOSP/Xiaomi source:
+
+```bash
+# Copy files to source tree
+cp shim/micharge/out/vendor.xiaomi.hardware.micharge-service \
+   device/xiaomi/[device]/prebuilt/system/bin/hw/
+
+cp kernel/micharge_uevent_helper/micharge_uevent.ko \
+   device/xiaomi/[device]/prebuilt/vendor_dlkm/lib/modules/
+
+cp kernel/micharge_uevent_helper/init.micharge_uevent.rc \
+   device/xiaomi/[device]/etc/init/
+
+# SELinux context must be defined in:
+# device/xiaomi/[device]/sepolicy/vendor/file_contexts
+# device/xiaomi/[device]/sepolicy/vendor/micharge.te (if needed)
+
+# Build
+lunch [device]-user
+m -j$(nproc)
+```
+
+### Verifying Installation
+
+After flashing or rebooting:
+
+```bash
+# Check HAL service
+adb shell getprop init.svc.vendor.xiaomi.hardware.micharge-service
+
+# Check kernel module
+adb shell lsmod | grep micharge
+
+# Check SELinux contexts
+adb shell ls -Z /vendor/bin/hw/vendor.xiaomi.hardware.micharge-service
+adb shell ls -Z /vendor/etc/init/init.micharge_uevent.rc
+
+# Verify no denial logs
+adb logcat | grep -i micharge
+adb logcat | grep -i "type=1400.*denied" | grep micharge
 ```
 
 ## Verification
@@ -230,16 +376,53 @@ Ensure Android NDK is installed and pass the path explicitly:
 - Verify kernel version matches build target
 - Check `dmesg` for symbol conflicts
 - Ensure CONFIG_POWER_SUPPLY is enabled in kernel
+- Check boot logs: `adb shell dmesg | grep micharge`
 
 ### HAL service crashes
-- Check logcat for specific error messages
+- Check logcat for specific error messages: `adb logcat -s MiChargeShim`
 - Verify all required sysfs nodes exist on device
 - Ensure proper permissions on `/sys/kernel/micharge_uevent/`
+- Check if service is properly registered: `adb shell getprop | grep micharge`
 
 ### No uevents received
 - Confirm kernel module is loaded: `lsmod | grep micharge`
 - Monitor with: `adb shell 'cat /proc/sys/kernel/uevent_seqnum'`
-- Check sysfs write permissions
+- Check sysfs write permissions: `adb shell ls -l /sys/kernel/micharge_uevent/`
+
+### SELinux Denial Errors
+If you see `type=1400` audit denials for micharge:
+
+```bash
+# Check denials
+adb logcat | grep "type=1400.*denied.*micharge"
+
+# Common issues:
+# 1. Wrong file_contexts - HAL must be labeled as system_file or vendor_file
+# 2. Wrong exec context - init script must be exec_type
+# 3. Init process not allowed - check sepolicy/init.te
+
+# Temporary workaround (not recommended for production):
+adb shell setenforce 0    # Permissive mode (debug only)
+```
+
+### Image repacking issues
+- **lpunpack fails**: Update to latest lptools: `pip install --upgrade lptools`
+- **simg2img errors**: Ensure sparse image format: check with `file vendor.img`
+- **Mount permission denied**: Use `sudo` or run as root
+- **Sparse image corrupted**: Verify with: `simg2img vendor.img test.raw && file test.raw`
+- **super.img structure**: Validate layout with `lpinfo super.img`
+
+### Device bootloop after flashing
+- Flashing incorrect vendor image format (must be sparse)
+- SELinux labels prevent critical services from starting
+- Kernel module incompatible with device kernel version
+- **Recovery**: Boot into TWRP/Fastboot and reflash original vendor partition
+
+### Cannot push files to /vendor
+This is expected on modern devices. You must:
+1. Use factory firmware as base
+2. Unpack → Modify → Repack → Flash via fastboot
+3. Do NOT rely on `adb remount` or `adb push`
 
 ## References
 
